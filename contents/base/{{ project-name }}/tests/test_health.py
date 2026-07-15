@@ -25,6 +25,30 @@ async def test_liveness():
     assert response.json() == {"status": "ok"}
 
 
+{% if persistence ~= 'None' %}
+@pytest.mark.asyncio
+async def test_graphql_schema_exposes_crud():
+    # Executing the resolvers needs a live database (covered by the acceptance
+    # suite); introspection proves the CRUD surface without one.
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            "/graphql",
+            json={
+                "query": "{ __schema {"
+                " queryType { fields { name } }"
+                " mutationType { fields { name } }"
+                " } }"
+            },
+        )
+    assert response.status_code == 200
+    schema = response.json()["data"]["__schema"]
+    queries = {f["name"] for f in schema["queryType"]["fields"]}
+    mutations = {f["name"] for f in schema["mutationType"]["fields"]}
+    assert {"{{ prefix_name }}", "{{ prefix_name }}s"} <= queries
+    assert {"create{{ PrefixName }}", "update{{ PrefixName }}", "delete{{ PrefixName }}"} <= mutations
+{% else %}
 @pytest.mark.asyncio
 async def test_graphql_query():
     async with AsyncClient(
@@ -38,3 +62,4 @@ async def test_graphql_query():
     data = response.json()
     assert "data" in data
     assert data["data"]["{{ prefix_name }}s"] == []
+{% endif %}

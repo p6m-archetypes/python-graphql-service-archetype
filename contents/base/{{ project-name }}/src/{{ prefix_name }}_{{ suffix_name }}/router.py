@@ -7,11 +7,6 @@ import strawberry
 
 async def get_context(request: Request) -> dict:
     ctx: dict = {}
-{% if persistence ~= 'None' %}
-    from . import persistence as _persistence
-    if _persistence._session_factory is not None:
-        ctx["session"] = _persistence.get_session()
-{% endif %}
 {% if cache ~= 'None' %}
     from . import cache as _cache
     if _cache._client is not None:
