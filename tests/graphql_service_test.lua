@@ -4,8 +4,11 @@
 ---
 --- The BEHAVIORAL bar — CRUD through the production image, the platform env contract, health/
 --- metrics/structured logs, both name shapes — lives in tests/standards_test.lua (the shared
---- p6m standards suite), fully containerized: docker is the only requirement. The `build_steps`
---- here are gated on host `uv` and skip cleanly where it's absent.
+--- p6m standards suite), fully containerized: docker is the only requirement. No host toolchain
+--- is invoked here either (S8b): compile coverage is containerized — the standards SUT builds
+--- each persistence variant's production image, and the hollow (None) rendering is proven by a
+--- docker-gated `docker.build` of its production Dockerfile below. The rendered project's own
+--- unit tests belong to the rendered project's CI, not to this suite.
 ---
 --- Run from the archetype repo root (uses ./prova.toml):   prova
 
@@ -71,8 +74,6 @@ for _, persistence in ipairs({ "PostgreSQL", "MySQL" }) do
       ".platform/docker/prd/Dockerfile",
     },
     yaml_globs = { ".platform/kubernetes/**/*.yaml" },
-    requires = { "uv" },
-    build_steps = { "uv sync --group dev", "uv run pytest -q" },
   })
 end
 
@@ -98,9 +99,21 @@ archetect.verify(hollow, {
   },
   absent_files = SCAFFOLD_FILES,
   yaml_globs = { ".platform/kubernetes/**/*.yaml" },
-  requires = { "uv" },
-  build_steps = { "uv sync --group dev", "uv run pytest -q" },
 })
+
+-- Containerized compile proof for the hollow variant (S8b): the persistence variants compile
+-- inside the standards SUT image builds; None never boots there, so prove it compiles by
+-- building its production image — build success IS the compile check, no boot needed.
+prova.group("python-graphql[None]:image", { requires = { "docker" } }, function(g)
+  g:test("production image builds from a clean render", function(t)
+    local root = t:use(hollow):dir(PROJECT_DIR)
+    local image = docker.build{
+      context = root.path,
+      dockerfile = ".platform/docker/prd/Dockerfile",
+    }
+    t:expect(image, "built image"):never():is_nil()
+  end)
+end)
 
 prova.group("python-graphql[None] stub schema", function(g)
   g:test("exposes no persisted mutations", function(t)
