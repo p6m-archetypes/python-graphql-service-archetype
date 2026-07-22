@@ -13,7 +13,7 @@ from .persistence import get_session
 
 @strawberry.type
 class {{ PrefixName }}:
-    id: str
+    id: strawberry.ID
     display_name: str
 
 
@@ -28,7 +28,7 @@ def _to_graphql(item: Item) -> {{ PrefixName }}:
 @strawberry.type
 class Query:
     @strawberry.field
-    async def {{ prefix_name }}(self, info: strawberry.types.Info, id: str) -> Optional[{{ PrefixName }}]:
+    async def {{ prefix_name }}(self, info: strawberry.types.Info, id: strawberry.ID) -> Optional[{{ PrefixName }}]:
 {% if persistence ~= 'None' %}
         async with get_session() as session:
             item = await session.get(Item, id)
@@ -67,7 +67,7 @@ class Mutation:
 
     @strawberry.mutation
     async def update_{{ prefix_name }}(
-        self, info: strawberry.types.Info, id: str, display_name: str
+        self, info: strawberry.types.Info, id: strawberry.ID, display_name: str
     ) -> Optional[{{ PrefixName }}]:
         async with get_session() as session:
             item = await session.get(Item, id)
@@ -78,7 +78,7 @@ class Mutation:
             return _to_graphql(item)
 
     @strawberry.mutation
-    async def delete_{{ prefix_name }}(self, info: strawberry.types.Info, id: str) -> bool:
+    async def delete_{{ prefix_name }}(self, info: strawberry.types.Info, id: strawberry.ID) -> bool:
         async with get_session() as session:
             item = await session.get(Item, id)
             if item is None:

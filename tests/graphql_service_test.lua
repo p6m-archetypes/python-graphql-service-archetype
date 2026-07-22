@@ -40,13 +40,14 @@ end
 -- prefix Example / suffix Service => project dir `example-service`, package `example_service`.
 -- Strawberry lowers snake_case resolver names to camelCase: `example` / `examples` /
 -- `createExample` / `updateExample` / `deleteExample`, argument `display_name` -> `displayName`.
+-- Entity ids surface as the GraphQL ID scalar (strawberry.ID) per the p6m standard.
 local PROJECT_DIR = "example-service"
 
 local CREATE = [[mutation($name: String!) { createExample(displayName: $name) { id displayName } }]]
-local GET    = [[query($id: String!) { example(id: $id) { id displayName } }]]
+local GET    = [[query($id: ID!) { example(id: $id) { id displayName } }]]
 local LIST   = [[{ examples { id displayName } }]]
-local UPDATE = [[mutation($id: String!, $name: String!) { updateExample(id: $id, displayName: $name) { id displayName } }]]
-local DELETE = [[mutation($id: String!) { deleteExample(id: $id) }]]
+local UPDATE = [[mutation($id: ID!, $name: String!) { updateExample(id: $id, displayName: $name) { id displayName } }]]
+local DELETE = [[mutation($id: ID!) { deleteExample(id: $id) }]]
 
 local EXPECTED_FILES = {
   "pyproject.toml",
@@ -147,7 +148,8 @@ prova.group("python-graphql layout", function(g)
     t:expect(fs.read(root .. "/src/example_service/router.py"), "GraphQL mount"):contains("/graphql")
     -- service-port + derived management-port land in settings.
     local settings = fs.read(root .. "/src/example_service/settings.py")
-    t:expect(settings, "service port"):contains("port: int = 8080")
+    t:expect(settings, "service port default"):contains("default=8080")
+    t:expect(settings, "platform SERVER_PORT alias"):contains("server_port")
     t:expect(settings, "management port"):contains("management_port: int = 8081")
   end)
 
@@ -209,8 +211,8 @@ prova.group("python-graphql endpoints", { requires = { "uv" } }, function(g)
 
   g:test("the management sidecar exposes Prometheus metrics", function(t)
     local svc = t:use(service)
-    -- /metrics 307-redirects to /metrics/; hit the canonical path directly.
-    local r = http.get(svc.mgmt_url .. "/metrics/")
+    -- An explicit route: GET /metrics answers 200 directly (no trailing-slash redirect).
+    local r = http.get(svc.mgmt_url .. "/metrics")
     t:expect(r.status, "metrics status code"):equals(200)
     t:expect(r.body, "Prometheus exposition format"):contains("# HELP")
   end)
