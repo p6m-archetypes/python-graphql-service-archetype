@@ -12,6 +12,8 @@
 ---
 --- Run from the archetype repo root (uses ./prova.toml):   prova
 
+local p6m = require("p6m")
+
 local SRC = "."
 
 -- prefix Example / suffix Service => project dir `example-service`, package `example_service`.
@@ -122,4 +124,16 @@ prova.group("python-graphql[None] stub schema", function(g)
     t:expect(schema, "no update mutation in the stub schema"):never():contains("update_example")
     t:expect(schema, "no delete mutation in the stub schema"):never():contains("delete_example")
   end)
+end)
+
+-- CI parity (S10): the rendered project's own Build workflow path — python-uv-setup/
+-- python-uv-build's exact command sequence on a fresh clone, in the toolchain image. The
+-- Dockerfile and CI are two independent build paths; S10 holds the second. The hollow render
+-- suffices: resource variants change dependencies, not the command path.
+prova.group("python-graphql[None]:ci", { requires = { "docker" }, tags = { "standards" } }, function(g)
+  p6m.standards.ci_parity(g, hollow, {
+    stack = "python",
+    project_dir = "example-service",
+    name = "python-graphql",
+  })
 end)
