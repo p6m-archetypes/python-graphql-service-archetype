@@ -1,0 +1,78 @@
+name: E2E Deploy Loop
+
+# The live deploy-loop e2e (e2e/deploy_loop_test.lua).
+# It renders THIS repo's current code, pushes a real GitHub repo, and drives the full GitOps loop
+# (Build -> release/digest -> .platform dispatch -> ArgoCD Synced/Healthy -> Deployment/Pods),
+# then always tears down. Kept OFF push/PR (that is the Acceptance workflow's job) - run it on demand.
+
+on:
+  workflow_dispatch:
+    inputs:
+      keep_resources:
+        description: "Skip teardown (leave the repo/app up for debugging)."
+        type: boolean
+        default: false
+  push:
+    branches: ["**"]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      ARCHETECT_VERSION: "3.2.1"
+      ARGOCD_SERVER: ${{ vars.ARGOCD_SERVER }}
+      ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+      ARGOCD_OPTS: "--grpc-web"
+      GH_TOKEN: ${{ secrets.E2E_GH_TOKEN }}
+      GITHUB_ORG: "ybor-playground"
+      KEEP_RESOURCES: ${{ inputs.keep_resources && '1' || '' }}
+      ARGO_APPEAR_TIMEOUT: 600
+      # Deterministic per-run identity so teardown can find the project even on failure.
+      RUN_ID: ${{ github.run_id }}
+    steps:
+      - name: Check required secrets
+        run: |
+          missing=()
+          [[ -n "${GH_TOKEN}" ]] || missing+=("E2E_GH_TOKEN")
+          [[ -n "${ARGOCD_AUTH_TOKEN}" ]] || missing+=("ARGOCD_AUTH_TOKEN")
+          if (( ${#missing[@]} )); then
+            echo "::error::Missing secret(s): ${missing[*]}. Set them as org secrets (visibility including this repo) or repo secrets. See e2e/README.md > CI."
+            exit 1
+          fi
+          echo "Required secrets present."
+
+      - uses: actions/checkout@v4
+
+      - name: Install archetect
+        run: |
+          url="https://github.com/archetect/archetect/releases/download/v${ARCHETECT_VERSION}/archetect-v${ARCHETECT_VERSION}-linux-x86_64.tar.gz"
+          curl -fsSL "$url" -o /tmp/archetect.tar.gz
+          tar -xzf /tmp/archetect.tar.gz -C /tmp
+          sudo install -m 0755 "/tmp/archetect-v${ARCHETECT_VERSION}-linux-x86_64/archetect" /usr/local/bin/archetect
+          archetect --version
+
+      - name: Install argocd CLI
+        run: |
+          curl -fsSL -o /tmp/argocd \
+            https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          sudo install -m 0755 /tmp/argocd /usr/local/bin/argocd
+          argocd version --client --short
+
+      - name: Configure git + gh auth for archetect git clones
+        run: |
+          git config --global user.name "Archetype E2E"
+          git config --global user.email "e2e@ybor.ai"
+          # archetect clones the archetype's libraries from github over git. Rewrite both https and
+          # git@ (ssh scp-style) URLs to token-authed https so the private libs resolve.
+          git config --global url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
+          git config --global url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "git@github.com:"
+          gh auth status
+
+      # run-action installs + runs prova; the tools/auth set up above persist into it. The e2e
+      # profile scopes the run to e2e/, and the flow tears down what it created inside the same
+      # process (pass or fail) via its flow-scoped teardown deferral.
+      - uses: prova-rs/run-action@v1
+        with:
+          profile: e2e
+          args: "-U"

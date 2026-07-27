@@ -6,9 +6,14 @@ proofs = ["tests"]
 [profiles.ci]
 format = "json"
 
+[profiles.e2e]
+proofs = ["e2e"]
+jobs = 1
+
 # Infrastructure plugins pinned to released tags; `p6m` is the org standards suite (released v1;
 # the ratchet: spec bumps move the v1 tag and the fleet answers).
 [plugins]
 postgres = "prova-rs/prova-postgres@v1"
 mysql    = "prova-rs/prova-mysql@v1"
 p6m      = "p6m-archetypes/prova-p6m-standards@v1"
+deploy   = "p6m-archetypes/prova-p6m-deploy-loop@dev"
