@@ -19,8 +19,8 @@ class {{ EntityName }}:
 
 {% if persistence ~= 'None' %}
 # Sample scaffold resolvers proving the persistence round trip end-to-end over the
-# {{ EntityName }} entity (domain/items.py). Replace with your real domain as it solidifies.
-def _to_graphql(item: {{ EntityName }}) -> {{ EntityName }}:
+# {{ EntityName }} entity (domain/{{ entity_name }}s.py). Replace with your real domain as it solidifies.
+def _to_graphql(item: {{ EntityName }}Entity) -> {{ EntityName }}:
     return {{ EntityName }}Entity(id=item.id, display_name=item.display_name)
 
 
