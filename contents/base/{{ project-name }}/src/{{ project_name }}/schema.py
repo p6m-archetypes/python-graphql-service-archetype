@@ -12,7 +12,7 @@ from .persistence import get_session
 
 
 @strawberry.type
-class {{ PrefixName }}:
+class {{ EntityName }}:
     id: strawberry.ID
     display_name: str
 
@@ -20,15 +20,15 @@ class {{ PrefixName }}:
 {% if persistence ~= 'None' %}
 # Sample scaffold resolvers proving the persistence round trip end-to-end over the
 # Item entity (domain/items.py). Replace with your real domain as it solidifies.
-def _to_graphql(item: Item) -> {{ PrefixName }}:
-    return {{ PrefixName }}(id=item.id, display_name=item.display_name)
+def _to_graphql(item: Item) -> {{ EntityName }}:
+    return {{ EntityName }}(id=item.id, display_name=item.display_name)
 
 
 {% endif %}
 @strawberry.type
 class Query:
     @strawberry.field
-    async def {{ prefix_name }}(self, info: strawberry.types.Info, id: strawberry.ID) -> Optional[{{ PrefixName }}]:
+    async def {{ entity_name }}(self, info: strawberry.types.Info, id: strawberry.ID) -> Optional[{{ EntityName }}]:
 {% if persistence ~= 'None' %}
         async with get_session() as session:
             item = await session.get(Item, id)
@@ -38,7 +38,7 @@ class Query:
 {% endif %}
 
     @strawberry.field
-    async def {{ prefix_name }}s(self, info: strawberry.types.Info) -> list[{{ PrefixName }}]:
+    async def {{ entity_name }}s(self, info: strawberry.types.Info) -> list[{{ EntityName }}]:
 {% if persistence ~= 'None' %}
         async with get_session() as session:
             result = await session.execute(select(Item).order_by(Item.created_at))
@@ -51,9 +51,9 @@ class Query:
 @strawberry.type
 class Mutation:
     @strawberry.mutation
-    async def create_{{ prefix_name }}(
+    async def create_{{ entity_name }}(
         self, info: strawberry.types.Info, display_name: str
-    ) -> {{ PrefixName }}:
+    ) -> {{ EntityName }}:
 {% if persistence ~= 'None' %}
         item = Item(id=str(uuid4()), display_name=display_name)
         async with get_session() as session:
@@ -61,14 +61,14 @@ class Mutation:
             await session.commit()
         return _to_graphql(item)
 {% else %}
-        return {{ PrefixName }}(id="", display_name=display_name)
+        return {{ EntityName }}(id="", display_name=display_name)
 {% endif %}
 {% if persistence ~= 'None' %}
 
     @strawberry.mutation
-    async def update_{{ prefix_name }}(
+    async def update_{{ entity_name }}(
         self, info: strawberry.types.Info, id: strawberry.ID, display_name: str
-    ) -> Optional[{{ PrefixName }}]:
+    ) -> Optional[{{ EntityName }}]:
         async with get_session() as session:
             item = await session.get(Item, id)
             if item is None:
@@ -78,7 +78,7 @@ class Mutation:
             return _to_graphql(item)
 
     @strawberry.mutation
-    async def delete_{{ prefix_name }}(self, info: strawberry.types.Info, id: strawberry.ID) -> bool:
+    async def delete_{{ entity_name }}(self, info: strawberry.types.Info, id: strawberry.ID) -> bool:
         async with get_session() as session:
             item = await session.get(Item, id)
             if item is None:
