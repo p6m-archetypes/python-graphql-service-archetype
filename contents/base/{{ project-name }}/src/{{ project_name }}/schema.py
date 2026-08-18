@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from sqlalchemy import select
 
-from .domain.items import Item
+from .domain.{{ entity_name }}s import {{ EntityName }}
 from .persistence import get_session
 {% endif %}
 
@@ -19,8 +19,8 @@ class {{ EntityName }}:
 
 {% if persistence ~= 'None' %}
 # Sample scaffold resolvers proving the persistence round trip end-to-end over the
-# Item entity (domain/items.py). Replace with your real domain as it solidifies.
-def _to_graphql(item: Item) -> {{ EntityName }}:
+# {{ EntityName }} entity (domain/items.py). Replace with your real domain as it solidifies.
+def _to_graphql(item: {{ EntityName }}) -> {{ EntityName }}:
     return {{ EntityName }}(id=item.id, display_name=item.display_name)
 
 
@@ -31,7 +31,7 @@ class Query:
     async def {{ entity_name }}(self, info: strawberry.types.Info, id: strawberry.ID) -> Optional[{{ EntityName }}]:
 {% if persistence ~= 'None' %}
         async with get_session() as session:
-            item = await session.get(Item, id)
+            item = await session.get({{ EntityName }}, id)
             return None if item is None else _to_graphql(item)
 {% else %}
         return None
@@ -41,7 +41,7 @@ class Query:
     async def {{ entity_name }}s(self, info: strawberry.types.Info) -> list[{{ EntityName }}]:
 {% if persistence ~= 'None' %}
         async with get_session() as session:
-            result = await session.execute(select(Item).order_by(Item.created_at))
+            result = await session.execute(select({{ EntityName }}).order_by({{ EntityName }}.created_at))
             return [_to_graphql(item) for item in result.scalars()]
 {% else %}
         return []
@@ -55,7 +55,7 @@ class Mutation:
         self, info: strawberry.types.Info, display_name: str
     ) -> {{ EntityName }}:
 {% if persistence ~= 'None' %}
-        item = Item(id=str(uuid4()), display_name=display_name)
+        item = {{ EntityName }}(id=str(uuid4()), display_name=display_name)
         async with get_session() as session:
             session.add(item)
             await session.commit()
@@ -70,7 +70,7 @@ class Mutation:
         self, info: strawberry.types.Info, id: strawberry.ID, display_name: str
     ) -> Optional[{{ EntityName }}]:
         async with get_session() as session:
-            item = await session.get(Item, id)
+            item = await session.get({{ EntityName }}, id)
             if item is None:
                 return None
             item.display_name = display_name
@@ -80,7 +80,7 @@ class Mutation:
     @strawberry.mutation
     async def delete_{{ entity_name }}(self, info: strawberry.types.Info, id: strawberry.ID) -> bool:
         async with get_session() as session:
-            item = await session.get(Item, id)
+            item = await session.get({{ EntityName }}, id)
             if item is None:
                 return False
             await session.delete(item)

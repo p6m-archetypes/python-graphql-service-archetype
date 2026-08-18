@@ -20,15 +20,16 @@ local SRC = "."
 local PROJECT_DIR = "example-service"
 
 local BASE_ANSWERS = {
-  author_name    = "Test Author",
-  author_email   = "test@example.com",
-  org_name       = "acme",
-  solution_name  = "platform",
-  prefix_name    = "Example",
-  suffix_name    = "Service",
+  project_name = "example-service",
+  solution_name = "acme-platform",
+  entity_name = "example",
   image_registry = "ghcr.io/acme",
 }
 
+-- NOTE: named, and that is load-bearing. `ctx:tempdir("render1")` is ADDRESSED, not created, so every
+-- unnamed call in one scope answers with the SAME directory: two renders into one destination
+-- leave the first winner in place and the second silently asserts against it. That is what made
+-- the hollow variant see the persistence variant's files.
 local function answers_with(extra)
   local out = {}
   for k, v in pairs(BASE_ANSWERS) do out[k] = v end
@@ -39,7 +40,7 @@ end
 -- Files the persistence scaffold must produce (relative to the rendered project root):
 -- the archetype's sample entity and the resource library's wiring.
 local SCAFFOLD_FILES = {
-  "src/example_service/domain/items.py",
+  "src/example_service/domain/examples.py",
   "src/example_service/persistence/__init__.py",
   "src/example_service/persistence/models.py",
 }
@@ -51,7 +52,7 @@ for _, persistence in ipairs({ "PostgreSQL", "MySQL" }) do
     return archetect.render{
       source = SRC,
       answers = answers_with{ persistence = persistence },
-      destination = ctx:tempdir(),
+      destination = ctx:tempdir("render1"),
       defaults = true,
     }
   end)
@@ -85,7 +86,7 @@ local hollow = prova.fixture("python-graphql[None]:project", Scope.File, functio
   return archetect.render{
     source = SRC,
     answers = answers_with{ persistence = "None" },
-    destination = ctx:tempdir(),
+    destination = ctx:tempdir("render2"),
     defaults = true,
   }
 end)
