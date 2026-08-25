@@ -1,0 +1,9 @@
+# Keep host state out of the image build context (S8): virtualenvs and bytecode caches from a
+# host `uv sync` would bloat the context and can shadow the in-image install.
+.venv/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.git/
+.platform/
+*.md
